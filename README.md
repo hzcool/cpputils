@@ -5,6 +5,7 @@
 ```C++
 SafeQueue<int> q; //先进先出线程安安全队列
 SafePriorityQueue<int> pq; //线程安全优先队列
+SignlePVQueue<int, 1000> sq; //单生产者消费者线程安全队列 
 ```
 
 

@@ -1,7 +1,10 @@
-#include <iostream>
+#include <bits/stdc++.h>
+using namespace std;
 
 #include "timer.h"
 #include "thread_pool.h"
+#include "safe_queue.h"
+
 
 void test_thread_pool() {
   ThreadPool pool;
@@ -34,15 +37,51 @@ void test_timer() {
     t.stop();  // 终止定时器， 所有未执行的事件都会放弃执行，状态设置为 Canceled。 (未显示调用，析构函数会执行)
 
 }
+
+
+const unsigned SZ = 20000000;
+SignlePVQueue<int, SZ> q;
+
+void P() {
+    for(int i = 0; i < SZ; ++i)
+        while(!q.put(i));
+}
+
+void V() {
+    int x;
+    for(int i = 0; i < SZ; ++i)
+        while(!q.get(x));
+}
+
+
+SafeQueue<int> qq;
+void P2() {
+    for(int i = 0; i < SZ; ++i)
+        qq.put(i);
+}
+
+void V2() {
+    int x;
+    for(int i = 0; i < SZ; ++i)
+        while(!qq.get(x));
+}
+
+
+
 int main() {
-//    TimePoint ed = Clock::now() + MS(20000);
-//    Timer t;
-//    int i = 0;
-//    t.Loop(1000, [&i]() mutable {std::cout << i << "\n"; ++i;});
-//    while(Clock::now() <= ed);
 
-    test_thread_pool();
-    test_timer();
+    auto st = Clock::now();
+    thread t1(P);
+    thread t2(V);
+    t1.join(); t2.join();
+    cout << chrono::duration_cast<MS>(Clock::now() - st).count() / 1000.0 << "\n";
+    cout << q.empty() << endl;
 
+//    st = Clock::now();
+//    thread t3(P2);
+//    thread t4(V2);
+//    t3.join(); t4.join();
+//    cout << chrono::duration_cast<MS>(Clock::now() - st).count() / 1000.0 << "\n";
+//    cout << qq.empty() << endl;
     return 0;
 }

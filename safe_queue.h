@@ -8,6 +8,7 @@
 #include <queue>
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 template<typename Tp, typename Container = std::queue<Tp>>
 class SafeQueue {
@@ -58,5 +59,52 @@ public:
 
 template<typename Tp, typename Comp = std::less<Tp>>
 class SafePriorityQueue: public SafeQueue<Tp, PriorityQueueAdapter<Tp, Comp>> {};
+
+
+#include <atomic>
+
+template <typename T,unsigned CAPACITY>
+class SignlePVQueue {
+public:
+    SignlePVQueue(): sz(0), head(0), tail(0) {}
+
+    bool put(const T& x) {
+        if(sz.load(std::memory_order_relaxed) >= CAPACITY) return false;
+        data[tail] = x;
+        if((++tail) == CAPACITY) tail = 0;
+        sz.fetch_add(1, std::memory_order_release);
+        return true;
+    }
+
+    bool put(T&& x) {
+        if(sz.load(std::memory_order_relaxed) >= CAPACITY) return false;
+        data[tail] = std::move(x);
+        if((++tail) == CAPACITY) tail = 0;
+        sz.fetch_add(1, std::memory_order_release);
+        return true;
+    }
+
+    bool get(T& x) {
+        if(sz.load(std::memory_order_relaxed) <= 0) return false;
+        x = std::move(data[head]);
+        if((++head) == CAPACITY) head = 0;
+        sz.fetch_sub(1, std::memory_order_release);
+        return true;
+    }
+
+    bool empty()   {
+        return sz.load(std::memory_order_relaxed) == 0;
+    }
+
+    size_t size() {
+        return sz.load(std::memory_order_relaxed);
+    }
+
+private:
+    std::atomic<unsigned> sz;
+    unsigned head, tail;
+    T data[CAPACITY];
+};
+
 
 #endif //CPPUTILS_SAFE_QUEUE_H

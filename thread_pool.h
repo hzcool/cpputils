@@ -38,6 +38,7 @@ public:
 
     template<typename Func = Functor, typename... Args>
     auto submit(Func&& f, Args&&... args) {
+        if(_shutdown) throw std::runtime_error("submit task for a stopped thread_pool");
         using WrapperFunc = decltype(f(args...))();
         std::function<WrapperFunc> func = std::bind(std::forward<Func>(f), std::forward<Args>(args)...);
         auto task_ptr = std::make_shared<std::packaged_task<WrapperFunc>>(func);
