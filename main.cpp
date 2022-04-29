@@ -8,16 +8,29 @@ using namespace std;
 
 void test_thread_pool() {
   ThreadPool pool;
-  pool.submit([](){std::cout << "hello world\n";}); //提交任务
-
-  std::future<int> fut = pool.submit([](int x,int y){return x + y;}, 1, 2); // 计算 1 + 2， 通过从返回的 future 获取结果
-  int res = fut.get();
-  std::cout << res << std::endl;
+  pool.start();
+//  pool.submit([](){std::cout << "hello world\n";}); //提交任务
+//
+//  std::future<int> fut = pool.submit([](int x,int y){return x + y;}, 1, 2); // 计算 1 + 2， 通过从返回的 future 获取结果
+//  int res = fut.get();
+//  std::cout << res << std::endl;
+    int SZ = 1000;
+    atomic<int> sum = 0;
+    array<thread, 10> a;
+    for(auto &t : a) {
+        t = thread([&]() {
+            for(int i = 0; i < SZ; ++i)
+                pool.submit([&sum]() {sum.fetch_add(1);});
+        });
+    }
+    for(auto &t : a) t.join();
+  this_thread::sleep_for(std::chrono::seconds(2));
+  cout << sum << "\n";
   pool.shutdown();
 }
 
 void test_timer() {
-    Timer t;  //默认构造(线程池大小为1)
+    Timer t;  //默认构造(线程池大小为2)
 
     t.Once(2000, [](const std::string &s){
       std::cout << s << std::endl;
@@ -29,59 +42,58 @@ void test_timer() {
         ++i;
     }); // 添加循环事件， 每 1000 毫秒输出自增变量。
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(11));
 
     event->get_state(); // 获取事件状态， 枚举类型EventState{Pending, Running, Canceled, Exited}。  未运行时 Pending, 运行中为Running, 任务取消：Canceled， 单次任务才有Exited状态。
     event->cancle(); // 事件取消
 
     t.stop();  // 终止定时器， 所有未执行的事件都会放弃执行，状态设置为 Canceled。 (未显示调用，析构函数会执行)
-
 }
 
+//void test_block_queue() {
+//    SPSCBlockQueue<int, 10> q;
+//
+//    thread t1([&]() {
+//        for(int i = 0; i < 10000; ++i) {
+//            q.put(i);
+//        }
+//    });
+//
+//    thread t2([&]() {
+//        int cnt = 0;
+//        for(int i = 0; i < 10000; ++i) {
+//            cnt += q.get();
+//        }
+//        cout << cnt << endl;
+//    });
+//
+//    t1.join();
+//    t2.join();
+//}
 
-const unsigned SZ = 20000000;
-SignlePVQueue<int, SZ> q;
-
-void P() {
-    for(int i = 0; i < SZ; ++i)
-        while(!q.put(i));
-}
-
-void V() {
-    int x;
-    for(int i = 0; i < SZ; ++i)
-        while(!q.get(x));
-}
-
-
-SafeQueue<int> qq;
-void P2() {
-    for(int i = 0; i < SZ; ++i)
-        qq.put(i);
-}
-
-void V2() {
-    int x;
-    for(int i = 0; i < SZ; ++i)
-        while(!qq.get(x));
-}
 
 
 
 int main() {
 
-    auto st = Clock::now();
-    thread t1(P);
-    thread t2(V);
-    t1.join(); t2.join();
-    cout << chrono::duration_cast<MS>(Clock::now() - st).count() / 1000.0 << "\n";
-    cout << q.empty() << endl;
+    test_thread_pool();
+//    test_block_queue();
+//        test_timer();
 
-//    st = Clock::now();
-//    thread t3(P2);
-//    thread t4(V2);
-//    t3.join(); t4.join();
-//    cout << chrono::duration_cast<MS>(Clock::now() - st).count() / 1000.0 << "\n";
-//    cout << qq.empty() << endl;
+//    for(int i = 0; i < 10; ++i) {
+//        thread t([&]() {
+//            int x = q.get();
+//            cout << x << endl;
+//        });
+//        t.detach();
+//    }
+//
+//
+//    for(int i = 0; i < 10; ++i) {
+//        q.put(i);
+//        this_thread::sleep_for(std::chrono::seconds(2));
+//    }
+
+
     return 0;
 }

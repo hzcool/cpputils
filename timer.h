@@ -47,7 +47,7 @@ public:
     using EventPtr = std::shared_ptr<Event>;
     using Lock = std::unique_lock<std::mutex>;
 
-    explicit Timer(int thread_pool_size = 1): _pool(thread_pool_size), _stop(false) {}
+    explicit Timer(int thread_pool_size = 2): _pool(thread_pool_size), _stop(false) { _pool.start(); }
     ~Timer() {
         if(!_stop) stop();
     }
