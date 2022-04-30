@@ -24,6 +24,7 @@ using TimePoint = std::chrono::time_point<Clock>;
 class Event {
 public:
     bool cancle() {
+        if(!_repeat && _state == Running) return false;
         _state = Canceled;
         return true;
     }
@@ -32,10 +33,10 @@ public:
     }
 private:
     explicit Event(const MS& interval, CallBack&& cb,  bool repeat = false): _interval(interval), _next_run(Clock::now() + interval), _cb(std::move(cb)), _repeat(repeat), _state(Pending) {}
-    MS _interval;
-    TimePoint _next_run;
     const bool _repeat;
     EventState _state;
+    MS _interval;
+    TimePoint _next_run;
     CallBack _cb;
     friend class Timer;
 };
@@ -47,7 +48,13 @@ public:
     using EventPtr = std::shared_ptr<Event>;
     using Lock = std::unique_lock<std::mutex>;
 
-    explicit Timer(int thread_pool_size = 2): _pool(thread_pool_size), _stop(false) { _pool.start(); }
+    explicit Timer(int thread_pool_size = 2): _pool(thread_pool_size), _stop(false) {
+        _pool.start();
+        _monitor = std::thread([this]() { this->start_monitor();});
+    }
+
+
+
     ~Timer() {
         if(!_stop) stop();
     }
@@ -75,31 +82,32 @@ public:
     }
 
 private:
-    void start() {
+    void start_monitor() {
         MS sleep_time;
+        EventPtr e;
         while (!_stop) {
-            EventPtr e;
             {
-                Lock lock(_que_mtx);
-                if(_events.empty()) return;
+                Lock lock(_mtx);
+                if(_events.empty()) {
+                    _cv.wait(lock);
+                    if(_stop) break;
+                }
                 e = _events.top();
                 sleep_time = std::chrono::duration_cast<MS>(e->_next_run - Clock::now());
-                if(sleep_time.count() > 0) e = nullptr; else _events.pop();
+                if(sleep_time.count() > 0) {
+                    _cv.wait_for(lock, sleep_time);
+                    continue;
+                } else _events.pop();
             }
-            if(e != nullptr) {
-                if(e->_state == Canceled || e->_state == Exited) continue;
-                if(e->_state == Pending) e->_state = Running;
-                if(!e->_repeat) {
-                    _pool.submit([e](){e->_cb(); e->_state = Exited;});
-                } else {
-                    _pool.submit(e->_cb);
-                    e->_next_run += e->_interval;
-                    Lock lock(_que_mtx);
-                    _events.push(e);
-                }
+            if(e->_state == Canceled || e->_state == Exited) continue;
+            if(e->_state == Pending) e->_state = Running;
+            if(!e->_repeat) {
+                _pool.submit([e{std::move(e)}](){e->_cb(); e->_state = Exited;});
             } else {
-                Lock lock(_cv_mtx);
-                _cv.wait_for(lock, sleep_time);
+                _pool.submit(e->_cb);
+                e->_next_run += e->_interval;
+                Lock lock(_mtx);
+                _events.push(e);
             }
         }
     }
@@ -108,14 +116,8 @@ private:
     EventPtr addEvent(const MS& interval, CallBack&& cb, bool repeat = false) {
         if(_stop) return nullptr;
         EventPtr e = std::make_shared<Event>(Event(interval, std::move(cb), repeat));
-        {
-            Lock lock(_que_mtx);
-            _events.push(e);
-        }
-        if(!_monitor.joinable()) {
-            Lock lock(_cv_mtx);
-            if(!_monitor.joinable()) _monitor = std::thread([this]() { this->start();});
-        }
+        Lock lock(_mtx);
+        _events.push(e);
         _cv.notify_one();
         return e;
     }
@@ -125,12 +127,12 @@ private:
             return e1->_next_run > e2->_next_run;
         }
     };
+    bool _stop;
     std::priority_queue<EventPtr, std::vector<EventPtr>, EventPtrCmp> _events;
-    std::mutex _cv_mtx, _que_mtx;
+    std::mutex _mtx;
     std::condition_variable _cv;
     ThreadPool _pool;
     std::thread _monitor;
-    bool _stop;
 };
 
 #endif //CPPUTILS_TIMER_H

@@ -11,15 +11,14 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include "safe_queue.h"
-#define LOCAL_QUEUE_SIZE 8
+#include <queue>
 
 class ThreadPool {
 public:
     using Functor = std::function<void()>;
     using Lock = std::unique_lock<std::mutex>;
 
-    ThreadPool(unsigned n_threads = 4): _workers(vector<Worker*>(n_threads)), _shutdown(false)  {}
+    ThreadPool(unsigned n_threads = 4): _workers(vector<std::thread>(n_threads)), _shutdown(false) {}
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool(ThreadPool &&) = delete;
     ThreadPool &operator=(const ThreadPool &) = delete;
@@ -29,37 +28,15 @@ public:
     }
 
     void start() {
-        for(auto &w: _workers) {
-            w = new Worker(this);
-            w->work();
-        }
-        _dispatch = std::thread([this]() {
-            Functor f = block_get(); int SZ = _workers.size();
-            while (!_shutdown) {
-                int k = _queue.size() / SZ;
-                if(k < 1) k = 1;
-                for(auto &w: _workers) {
-                    for(int i = 0; i < k; ++i) {
-                        if(w->que.put(std::move(f))) {
-                            if(!_queue.get(f)) {
-                                w->cv.notify_one();
-                                f = block_get();
-                                if(_shutdown) return;
-                            }
-                        }
-                        else break;
-                    }
-                    w->cv.notify_one();
-                }
-            }
-        });
+        for(int i = 0; i < _workers.size(); ++i)
+            _workers[i] = std::thread(Worker(this, i));
     }
 
     void shutdown() {
         _shutdown = true;
         _cv.notify_all();
-        if(_dispatch.joinable()) _dispatch.join();
-        for(auto &w: _workers) if(w) delete w;
+        for(auto &w: _workers)
+            if(w.joinable()) w.join();
     }
 
     template<typename Func = Functor, typename... Args>
@@ -68,53 +45,47 @@ public:
         using WrapperFunc = decltype(f(args...))();
         std::function<WrapperFunc> func = std::bind(std::forward<Func>(f), std::forward<Args>(args)...);
         auto task_ptr = std::make_shared<std::packaged_task<WrapperFunc>>(func);
-        _queue.put([task_ptr]() {(*task_ptr)();});
+        Lock lock(_mtx);
+        _queue.push([task_ptr]() {(*task_ptr)();});
         _cv.notify_one();
         return task_ptr->get_future();
     }
 private:
     struct Worker {
-        explicit Worker(ThreadPool* _pool): pool(_pool) {}
-        ~Worker() {
-            cv.notify_one();
-            if(t.joinable())  t.join();
-        }
-        void work() {
-            t = std::thread([this] {
-                Functor f;
-                while (!pool->_shutdown) {
-                    if(que.get(f)) f();
-                    else {
-                        Lock lock(mtx);
-                        cv.wait(lock);
-                    }
-                }
-            });
-        }
-        Ringbuffer<Functor, LOCAL_QUEUE_SIZE> que;
-        ThreadPool* pool;
-        std::condition_variable cv;
-        std::mutex mtx;
-        std::thread t;
+        explicit Worker(ThreadPool* _pool, int _id): pool(_pool), id(_id) {}
 
+        void operator()() {
+            auto SZ = pool->_workers.size();
+            while(!pool->_shutdown) {
+                if(local_queue.empty()) {
+                    //从全局队列中获取任务
+                    Lock lock(pool->_mtx);
+                    if (pool->_queue.empty()) pool->_cv.wait(lock);
+                    auto K = (pool->_queue.size() + SZ - 1) / SZ;
+                    while(K--) {
+                        local_queue.push(std::move(pool->_queue.front()));
+                        pool->_queue.pop();
+                    }
+                    continue;
+                }
+                Functor f = move(local_queue.front());
+                local_queue.pop();
+                f();
+            }
+        }
+
+        std::queue<Functor> local_queue;
+        ThreadPool* pool;
+        int id;
         friend ThreadPool;
     };
 
-    Functor block_get() {
-        Functor f;
-        if(!_queue.get(f)) {
-            Lock lock(_mtx);
-            _cv.wait(lock, [&]() {return _shutdown || _queue.get(f);});
-        }
-        return std::move(f);
-    }
 
     bool _shutdown;
-    SafeQueue<Functor> _queue;
+    vector<std::thread> _workers;
     std::mutex _mtx;
     std::condition_variable _cv;
+    std::queue<Functor> _queue;
 
-    vector<Worker*> _workers;
-    std::thread _dispatch;
 };
 #endif //CPPUTILS_THREAD_POOL_H

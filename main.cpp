@@ -14,7 +14,7 @@ void test_thread_pool() {
 //  std::future<int> fut = pool.submit([](int x,int y){return x + y;}, 1, 2); // 计算 1 + 2， 通过从返回的 future 获取结果
 //  int res = fut.get();
 //  std::cout << res << std::endl;
-    int SZ = 1000;
+    int SZ = 10000;
     atomic<int> sum = 0;
     array<thread, 10> a;
     for(auto &t : a) {
@@ -77,23 +77,8 @@ void test_timer() {
 int main() {
 
     test_thread_pool();
-//    test_block_queue();
-//        test_timer();
-
-//    for(int i = 0; i < 10; ++i) {
-//        thread t([&]() {
-//            int x = q.get();
-//            cout << x << endl;
-//        });
-//        t.detach();
-//    }
-//
-//
-//    for(int i = 0; i < 10; ++i) {
-//        q.put(i);
-//        this_thread::sleep_for(std::chrono::seconds(2));
-//    }
-
+    test_timer();
 
     return 0;
+
 }
