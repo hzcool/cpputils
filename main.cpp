@@ -4,6 +4,7 @@ using namespace std;
 #include "timer.h"
 #include "thread_pool.h"
 #include "safe_queue.h"
+#include "traits.h"
 
 
 void test_thread_pool() {
@@ -73,12 +74,38 @@ void test_timer() {
 
 
 
+void fuck(int a, string b, int c, bool d, char t) {
+
+}
+
+template <typename Tp>
+void TypeJudge() {
+    if constexpr(is_same_v<Tp, int>) {
+        cout << "int\n";
+    } else if constexpr(is_same_v<Tp, string>) {
+        cout << "string\n";
+    } else if constexpr(is_same_v<Tp, bool>) {
+        cout << "bool\n";
+    } else {
+        cout << "other\n";
+    }
+}
+
+
+using H = FunctionTrait<decltype(fuck)>;
+
+template<size_t i>
+void check() {
+    if constexpr(i >= 1)  {
+        TypeJudge<typename H::arg<i - 1>::type>();
+        check<i - 1>();
+    }
+}
 
 int main() {
 
-    test_thread_pool();
-    test_timer();
+    test_context();
+
 
     return 0;
-
 }
