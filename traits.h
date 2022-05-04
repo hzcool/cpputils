@@ -35,6 +35,20 @@ template<typename Lambda>
 struct FunctionTrait<lambda_wrapper<Lambda>> : FunctionTrait<typename lambda_wrapper<Lambda>::type>{  // lambda
 };
 
+/*
+ 参数包
+ */
+template<typename T, typename... Args>
+struct IsInTypePackage: __or_<is_same<T, Args>...> {};
+
+//example
+template<typename T>
+struct isIntegral : IsInTypePackage<T,
+        bool, char, signed char, unsigned char, short,
+        unsigned short, int, unsigned int, long, unsigned long,
+        long long, unsigned long long> {};
+
+
 
 /*
  Context可以用于 http 的 handle 处理链。
