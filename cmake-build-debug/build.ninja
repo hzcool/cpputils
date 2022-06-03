@@ -55,6 +55,12 @@ build CMakeFiles/cpputils.dir/main.cpp.o: CXX_COMPILER__cpputils_Debug /home/hzc
   OBJECT_DIR = CMakeFiles/cpputils.dir
   OBJECT_FILE_DIR = CMakeFiles/cpputils.dir
 
+build CMakeFiles/cpputils.dir/compile_time_heap_sort.cpp.o: CXX_COMPILER__cpputils_Debug /home/hzcool/CLionProjects/cpputils/compile_time_heap_sort.cpp || cmake_object_order_depends_target_cpputils
+  DEP_FILE = CMakeFiles/cpputils.dir/compile_time_heap_sort.cpp.o.d
+  FLAGS = -O2 -lpthread -g -std=gnu++17
+  OBJECT_DIR = CMakeFiles/cpputils.dir
+  OBJECT_FILE_DIR = CMakeFiles/cpputils.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target cpputils
@@ -63,13 +69,44 @@ build CMakeFiles/cpputils.dir/main.cpp.o: CXX_COMPILER__cpputils_Debug /home/hzc
 #############################################
 # Link the executable cpputils
 
-build cpputils: CXX_EXECUTABLE_LINKER__cpputils_Debug CMakeFiles/cpputils.dir/main.cpp.o
+build cpputils: CXX_EXECUTABLE_LINKER__cpputils_Debug CMakeFiles/cpputils.dir/main.cpp.o CMakeFiles/cpputils.dir/compile_time_heap_sort.cpp.o
   FLAGS = -O2 -lpthread -g
   OBJECT_DIR = CMakeFiles/cpputils.dir
   POST_BUILD = :
   PRE_LINK = :
   TARGET_FILE = cpputils
   TARGET_PDB = cpputils.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target compile_time_heap_sort
+
+
+#############################################
+# Order-only phony target for compile_time_heap_sort
+
+build cmake_object_order_depends_target_compile_time_heap_sort: phony || CMakeFiles/compile_time_heap_sort.dir
+
+build CMakeFiles/compile_time_heap_sort.dir/compile_time_heap_sort.cpp.o: CXX_COMPILER__compile_time_heap_sort_Debug /home/hzcool/CLionProjects/cpputils/compile_time_heap_sort.cpp || cmake_object_order_depends_target_compile_time_heap_sort
+  DEP_FILE = CMakeFiles/compile_time_heap_sort.dir/compile_time_heap_sort.cpp.o.d
+  FLAGS = -O2 -lpthread -g -std=gnu++17
+  OBJECT_DIR = CMakeFiles/compile_time_heap_sort.dir
+  OBJECT_FILE_DIR = CMakeFiles/compile_time_heap_sort.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target compile_time_heap_sort
+
+
+#############################################
+# Link the executable compile_time_heap_sort
+
+build compile_time_heap_sort: CXX_EXECUTABLE_LINKER__compile_time_heap_sort_Debug CMakeFiles/compile_time_heap_sort.dir/compile_time_heap_sort.cpp.o
+  FLAGS = -O2 -lpthread -g
+  OBJECT_DIR = CMakeFiles/compile_time_heap_sort.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = compile_time_heap_sort
+  TARGET_PDB = compile_time_heap_sort.dbg
 
 
 #############################################
@@ -106,7 +143,7 @@ build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 #############################################
 # Folder: /home/hzcool/CLionProjects/cpputils/cmake-build-debug
 
-build all: phony cpputils
+build all: phony cpputils compile_time_heap_sort
 
 # =============================================================================
 # Built-in targets
